@@ -1,0 +1,35 @@
+name: LinkedIn Auto Post Test
+
+on:
+  workflow_dispatch: # ボタンを押して手動テスト実行
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get User ID
+        id: get_user
+        run: |
+          USER_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.LINKEDIN_ACCESS_TOKEN }}" https://api.linkedin.com/v2/userinfo | jq -r '.sub')
+          echo "USER_ID=$USER_ID" >> $GITHUB_ENV
+
+      - name: Post to LinkedIn
+        run: |
+          curl -X POST https://api.linkedin.com/v2/ugcPosts \
+            -H "Authorization: Bearer ${{ secrets.LINKEDIN_ACCESS_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "author": "urn:li:person:'$USER_ID'",
+              "lifecycleState": "PUBLISHED",
+              "specificContent": {
+                "com.linkedin.ugc.ShareContent": {
+                  "shareCommentary": {
+                    "text": "GitHub Actionsからのテスト投稿です！🚀"
+                  },
+                  "shareMediaCategory": "NONE"
+                }
+              },
+              "visibility": {
+                "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
+              }
+            }'
