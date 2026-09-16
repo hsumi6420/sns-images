@@ -9,7 +9,20 @@ jobs:
     steps:
       - name: Get User ID
         run: |
-          USER_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.LINKEDIN_ACCESS_TOKEN }}" https://api.linkedin.com/v2/me | jq -r '.id')
+          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.LINKEDIN_ACCESS_TOKEN }}" https://api.linkedin.com/v2/userinfo)
+          USER_ID=$(echo "$RESPONSE" | jq -r '.sub')
+          
+          if [ "$USER_ID" == "null" ] || [ -z "$USER_ID" ]; then
+            RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.LINKEDIN_ACCESS_TOKEN }}" https://api.linkedin.com/v2/me)
+            USER_ID=$(echo "$RESPONSE" | jq -r '.id')
+          fi
+
+          echo "User ID: $USER_ID"
+          if [ "$USER_ID" == "null" ] || [ -z "$USER_ID" ]; then
+            echo "Failed to get User ID. Response: $RESPONSE"
+            exit 1
+          fi
+
           echo "USER_ID=$USER_ID" >> $GITHUB_ENV
 
       - name: Post to LinkedIn
@@ -18,7 +31,7 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.LINKEDIN_ACCESS_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{
-              "author": "urn:li:person:'$USER_ID'",
+              "author": "urn:li:person:'"${{ env.USER_ID }}"'",
               "lifecycleState": "PUBLISHED",
               "specificContent": {
                 "com.linkedin.ugc.ShareContent": {
