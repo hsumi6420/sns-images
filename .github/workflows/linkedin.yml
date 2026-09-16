@@ -1,21 +1,20 @@
 name: LinkedIn Auto Post Test
 
 on:
-  workflow_dispatch: # ボタンを押して手動テスト実行
+  workflow_dispatch:
 
 jobs:
   post:
     runs-on: ubuntu-latest
     steps:
       - name: Get User ID
-        id: get_user
         run: |
-          USER_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.LINKEDIN_ACCESS_TOKEN }}" https://api.linkedin.com/v2/userinfo | jq -r '.sub')
+          USER_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.LINKEDIN_ACCESS_TOKEN }}" https://api.linkedin.com/v2/me | jq -r '.id')
           echo "USER_ID=$USER_ID" >> $GITHUB_ENV
 
       - name: Post to LinkedIn
         run: |
-          curl -X POST https://api.linkedin.com/v2/ugcPosts \
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST https://api.linkedin.com/v2/ugcPosts \
             -H "Authorization: Bearer ${{ secrets.LINKEDIN_ACCESS_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{
@@ -24,7 +23,7 @@ jobs:
               "specificContent": {
                 "com.linkedin.ugc.ShareContent": {
                   "shareCommentary": {
-                    "text": "GitHub Actionsからのテスト投稿です！🚀"
+                    "text": "GitHub Actionsからの自動投稿テストです！🚀"
                   },
                   "shareMediaCategory": "NONE"
                 }
@@ -32,4 +31,13 @@ jobs:
               "visibility": {
                 "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
               }
-            }'
+            }')
+          
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "$BODY"
+          
+          if [ "$HTTP_STATUS" -ne 201 ]; then
+            echo "Failed with HTTP status $HTTP_STATUS"
+            exit 1
+          fi
